@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_esp32_cam_project/src/view/wifi_check.dart';
@@ -23,8 +23,8 @@ class _HomeState extends State<Home> {
   double newVideoSizeHeight = 480;
 
   late bool isLandscape;
-
-  final _globalKey = GlobalKey();
+  late bool isBusy;
+  late bool detected;
 
   late ObjectDetector _detector;
   late Timer _timer;
@@ -32,12 +32,15 @@ class _HomeState extends State<Home> {
   @override
   void initState() {
     super.initState();
+    detected = false;
     isLandscape = false;
+    isBusy = false;
     _detector = ObjectDetector(
         options: ObjectDetectorOptions(
-            mode: DetectionMode.stream,
-            classifyObjects: true,
-            multipleObjects: true));
+      mode: DetectionMode.stream,
+      classifyObjects: false,
+      multipleObjects: true,
+    ));
   }
 
   @override
@@ -46,6 +49,31 @@ class _HomeState extends State<Home> {
     _detector.close();
     _timer.cancel();
     super.dispose();
+  }
+
+  void detect(Uint8List bytes) {
+    if (isBusy) return;
+    isBusy = true;
+    _detector
+        .processImage(InputImage.fromBytes(
+            bytes: bytes,
+            metadata: InputImageMetadata(
+                size: Size(videoWidth, videoHeight),
+                rotation: InputImageRotation.rotation0deg,
+                format: InputImageFormat.bgra8888,
+                bytesPerRow: 7000)))
+        .then((results) {
+      setState(() {
+        if (results.isNotEmpty) {
+          detected = true;
+          debugPrint("누구야 !!");
+        } else {
+          detected = false;
+          debugPrint("");
+        }
+        isBusy = false;
+      });
+    });
   }
 
   @override
@@ -72,38 +100,30 @@ class _HomeState extends State<Home> {
                 ),
               );
             } else {
-              try {
-                _detector
-                    .processImage(InputImage.fromBytes(
-                        bytes: snapshot.data,
-                        metadata: InputImageMetadata(
-                            size: const Size(50, 50),
-                            format: InputImageFormat.nv21,
-                            bytesPerRow: 1,
-                            rotation: InputImageRotation
-                                .rotation0deg // or other rotation value
-                            )))
-                    .then((result) {
-                  debugPrint(result.length.toString());
-                });
-              } catch (e) {
-                print(e.toString());
-              }
-              // Handle the detection result
-
+              detect(snapshot.data);
               return Column(
                 children: <Widget>[
                   SizedBox(
                     height: isLandscape ? 0 : 30,
                   ),
-                  RepaintBoundary(
-                    key: _globalKey,
-                    child: Image.memory(
-                      snapshot.data,
-                      gaplessPlayback: true,
-                      width: newVideoSizeWidth,
-                      height: newVideoSizeHeight,
-                    ),
+                  Stack(
+                    children: [
+                      Positioned(
+                        bottom: 1,
+                        right: 1,
+                        child: Text(
+                          (detected) ? "사람등장 !!" : "",
+                          style: const TextStyle(
+                              color: Colors.white, fontSize: 40),
+                        ),
+                      ),
+                      Image.memory(
+                        snapshot.data,
+                        gaplessPlayback: true,
+                        width: newVideoSizeWidth,
+                        height: newVideoSizeHeight,
+                      ),
+                    ],
                   ),
                 ],
               );
