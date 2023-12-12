@@ -16,7 +16,7 @@ class WifiCheck extends StatefulWidget {
 }
 
 class _WifiCheckState extends State<WifiCheck> {
-  final String targetSSID = "U+Net599C";
+  final String targetSSID = "HSW_ESP32";
   String _connectionStatus = 'Unknown';
   final Connectivity _connectivity = Connectivity();
   final WifiInfo _wifiInfo = WifiInfo();
@@ -180,7 +180,6 @@ class _WifiCheckState extends State<WifiCheck> {
       }
     }).onDone(() {
       isDiscovering = false;
-      isTargetSSID = true;
     });
   }
 }
